@@ -110,6 +110,21 @@ interface ICLAMMPool {
     /// @notice The currently in range liquidity available to the pool.
     function liquidity() external view returns (uint128);
 
+    /// @notice The cumulative tick, i.e. sum of tick * seconds elapsed, as of the
+    ///         last oracle advance. Overflow is by design; consumers must use
+    ///         differences between two samples, never absolute values.
+    function tickCumulativeLast() external view returns (int56);
+
+    /// @notice The timestamp (mod 2^32) of the last oracle advance.
+    function blockTimestampLast() external view returns (uint32);
+
+    /// @notice Returns the tick accumulator extrapolated to the current block.
+    /// @dev The time-weighted average tick between two samples (t1 < t2) is
+    ///      (tickCumulative2 - tickCumulative1) / (blockTimestamp2 - blockTimestamp1).
+    /// @return tickCumulative The current cumulative tick value.
+    /// @return blockTimestamp The current block timestamp (mod 2^32).
+    function observe() external view returns (int56 tickCumulative, uint32 blockTimestamp);
+
     /// @notice Look up information about a specific tick in the pool.
     function ticks(int24 tick)
         external

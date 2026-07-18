@@ -84,6 +84,11 @@ contract CLAMMPool is ICLAMMPool {
     uint128 public override liquidity;
 
     /// @inheritdoc ICLAMMPool
+    int56 public override tickCumulativeLast;
+    /// @inheritdoc ICLAMMPool
+    uint32 public override blockTimestampLast;
+
+    /// @inheritdoc ICLAMMPool
     mapping(int24 => Tick.Info) public override ticks;
     /// @inheritdoc ICLAMMPool
     mapping(int16 => uint256) public override tickBitmap;
@@ -140,6 +145,33 @@ contract CLAMMPool is ICLAMMPool {
     }
 
     /*//////////////////////////////////////////////////////////////
+                                ORACLE
+    //////////////////////////////////////////////////////////////*/
+
+    /// @dev Folds the time elapsed since the last observation into the tick
+    ///      accumulator at the given (still-current) tick. Must be called before
+    ///      any action that can move the price.
+    function _advanceOracle(int24 tick) private {
+        uint32 blockTimestamp = uint32(block.timestamp);
+        unchecked {
+            // Both the timestamp subtraction (uint32 wrap) and the accumulator
+            // addition (int56 wrap) are designed to overflow.
+            tickCumulativeLast += int56(tick) * int56(uint56(blockTimestamp - blockTimestampLast));
+        }
+        blockTimestampLast = blockTimestamp;
+    }
+
+    /// @inheritdoc ICLAMMPool
+    function observe() external view override returns (int56 tickCumulative, uint32 blockTimestamp) {
+        require(slot0.sqrtPriceX96 != 0, "CLAMMPool: NI"); // not initialized
+        blockTimestamp = uint32(block.timestamp);
+        unchecked {
+            tickCumulative =
+                tickCumulativeLast + int56(slot0.tick) * int56(uint56(blockTimestamp - blockTimestampLast));
+        }
+    }
+
+    /*//////////////////////////////////////////////////////////////
                               INITIALIZE
     //////////////////////////////////////////////////////////////*/
 
@@ -148,6 +180,8 @@ contract CLAMMPool is ICLAMMPool {
         require(slot0.sqrtPriceX96 == 0, "CLAMMPool: AI"); // already initialized
 
         int24 tick = TickMath.getTickAtSqrtRatio(sqrtPriceX96);
+
+        blockTimestampLast = uint32(block.timestamp);
 
         slot0 = Slot0({sqrtPriceX96: sqrtPriceX96, tick: tick, feeProtocol: 0, unlocked: true});
 
@@ -437,6 +471,9 @@ contract CLAMMPool is ICLAMMPool {
         );
 
         slot0.unlocked = false;
+
+        // Accumulate time spent at the pre-swap tick before the price moves.
+        _advanceOracle(slot0Start.tick);
 
         SwapCache memory cache = SwapCache({
             liquidityStart: liquidity,
