@@ -1,6 +1,6 @@
 # CLAMM — Concentrated-Liquidity AMM
 
-A from-scratch implementation of a **concentrated-liquidity DEX** (Uniswap V3-style) in Solidity 0.8, with tick-based liquidity, Q64.96 fixed-point sqrt-price accounting, ERC-721 liquidity positions, flash loans, and protocol fees. Built with Hardhat + TypeScript and covered by 56 unit and integration tests.
+A from-scratch implementation of a **concentrated-liquidity DEX** (Uniswap V3-style) in Solidity 0.8, with tick-based liquidity, Q64.96 fixed-point sqrt-price accounting, ERC-721 liquidity positions, flash loans, protocol fees, a TWAP oracle, and an off-chain quoter. Built with Hardhat + TypeScript and covered by 70 unit, integration and invariant tests.
 
 > ⚠️ **Educational / portfolio project.** The contracts compile cleanly and the full test suite passes, but the code has **not been audited** and must not be used to hold real funds.
 
@@ -14,6 +14,7 @@ The core mechanics implemented here:
 - **Q64.96 sqrt-price** — the pool tracks √P as a fixed-point number. Swaps integrate along the curve using `L` and `√P`, which turns amount math into multiplications/divisions with controlled rounding (always in the pool's favour).
 - **Tick bitmap** — initialized ticks are indexed in a packed bitmap so the swap loop can find the next tick with bit tricks instead of iteration.
 - **Fee growth accounting** — fees accrue as Q128.128 "growth per unit of liquidity" globals, with per-tick "outside" snapshots that make per-position fee computation O(1).
+- **TWAP oracle** — the pool maintains a `tick × seconds` accumulator (advanced lazily at the start of each swap), so the time-weighted average tick between any two `observe()` samples is one subtraction and one division.
 
 ## Architecture
 
@@ -26,6 +27,8 @@ contracts/
 ├── periphery/
 │   ├── NonfungiblePositionManager.sol  # ERC-721 wrapper over pool positions
 │   ├── SwapRouter.sol                  # Deadline + slippage protected swaps
+│   ├── Quoter.sol                      # eth_call swap quotes via revert-and-catch
+│   ├── base/Multicall.sol              # Atomic batching (create+init+mint, ...)
 │   └── libraries/LiquidityAmounts.sol
 ├── libraries/
 │   ├── TickMath.sol              # tick ⇄ sqrtPriceX96 (fixed-point exp/log)
@@ -46,17 +49,19 @@ contracts/
 - **Rounding discipline**: every division rounds against the user (up for amounts owed to the pool, down for amounts paid out). The test suite asserts round-trip mint→burn loses at most 1 wei to rounding.
 - **Callback validation in periphery**: the position manager pins the expected pool address for the in-flight mint; the router derives the canonical pool from the factory and rejects any other caller.
 - **Protocol fees**: 0 or 1/4 … 1/10 of swap fees per token, gated to the factory owner, matching the V3 governance surface.
+- **Single-accumulator oracle instead of a ring buffer**: `observe()` extrapolates one `(tickCumulative, timestamp)` pair to the current block. Consumers that need historical windows sample it themselves (e.g. from a keeper), which keeps swap-path gas overhead to two warm storage writes instead of V3's observation array.
+- **Quoter via revert-and-catch**: quotes execute the real swap against the real pool and abort from the callback with the amounts encoded in the revert data — zero drift from the actual swap path, no state mutation, usable with `eth_call`/`callStatic`.
 
 ### Scope notes
 
-Deliberately out of scope to keep the audit surface small: the TWAP oracle ring buffer, multi-hop routing, native-ETH (WETH) handling in the periphery, and fee-on-transfer token support. Each is a well-understood extension and would be the natural next milestone.
+Deliberately out of scope to keep the audit surface small: multi-hop routing, native-ETH (WETH) handling in the periphery, permit-based approvals, and fee-on-transfer token support. Each is a well-understood extension and would be the natural next milestone.
 
 ## Getting started
 
 ```bash
 npm install
 npm run build     # hardhat compile
-npm test          # 56 unit + integration tests
+npm test          # 70 unit + integration + invariant tests
 npm run lint      # solhint
 REPORT_GAS=true npx hardhat test   # gas report
 ```
@@ -67,6 +72,8 @@ REPORT_GAS=true npx hardhat test   # gas report
 - **FullMath** phantom-overflow cases (`2^200 · 2^100 / 2^150`) and exact bigint cross-checks.
 - **Pool lifecycle**: initialize-once, in-range/out-of-range mints, tick-spacing enforcement, exact-input and exact-output swaps in both directions, price-limit partial fills, tick crossing deactivating liquidity, fee accrual to the exact expected 0.30%, protocol fee split and collection, flash loans, and 1-wei-max rounding loss on principal exit.
 - **Periphery**: ERC-721 authorization (owner/approved-operator), slippage and deadline reverts, callback caller validation, and a full LP-earns-fees-and-exits integration journey.
+- **Oracle & quoter**: accumulator advances only when the price can move, TWAP reconstruction across a swap, and quoter outputs asserted equal-to-the-wei against subsequently executed swaps.
+- **Solvency invariant**: seeded randomized sessions (mints, both-direction exact-in/out swaps, flashes, partial burns) followed by a full exit of every position and the protocol fees — the pool must honour every withdrawal and end holding nothing but sub-1e6-wei rounding dust.
 
 ## Security considerations
 
