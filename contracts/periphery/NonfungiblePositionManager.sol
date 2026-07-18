@@ -12,11 +12,12 @@ import {FullMath} from "../libraries/FullMath.sol";
 import {FixedPoint128} from "../libraries/FixedPoint128.sol";
 import {TransferHelper} from "../libraries/TransferHelper.sol";
 import {LiquidityAmounts} from "./libraries/LiquidityAmounts.sol";
+import {Multicall} from "./base/Multicall.sol";
 
 /// @title NonfungiblePositionManager
 /// @notice Wraps CLAMM positions in the ERC-721 non-fungible token interface,
 ///         allowing positions to be transferred and composed like any NFT.
-contract NonfungiblePositionManager is ERC721, IMintCallback {
+contract NonfungiblePositionManager is ERC721, IMintCallback, Multicall {
     /*//////////////////////////////////////////////////////////////
                                  TYPES
     //////////////////////////////////////////////////////////////*/
@@ -126,6 +127,38 @@ contract NonfungiblePositionManager is ERC721, IMintCallback {
 
     constructor(address _factory) ERC721("CLAMM Positions NFT", "CLAMM-POS") {
         factory = ICLAMMFactory(_factory);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                            POOL INITIALIZER
+    //////////////////////////////////////////////////////////////*/
+
+    /// @notice Creates a pool for the given tokens and fee if it does not exist
+    ///         yet, and initializes it if it holds no price. Typically batched
+    ///         with `mint` via `multicall`.
+    /// @param token0 The first token of the pool by address sort order.
+    /// @param token1 The second token of the pool by address sort order.
+    /// @param fee The fee tier of the pool.
+    /// @param sqrtPriceX96 The initial price for the pool if it must be initialized.
+    /// @return pool The pool for the given parameters.
+    function createAndInitializePoolIfNecessary(
+        address token0,
+        address token1,
+        uint24 fee,
+        uint160 sqrtPriceX96
+    ) external returns (address pool) {
+        require(token0 < token1, "NPM: TOKEN_ORDER");
+        pool = factory.getPool(token0, token1, fee);
+
+        if (pool == address(0)) {
+            pool = factory.createPool(token0, token1, fee);
+            ICLAMMPool(pool).initialize(sqrtPriceX96);
+        } else {
+            (uint160 sqrtPriceX96Existing, , , ) = ICLAMMPool(pool).slot0();
+            if (sqrtPriceX96Existing == 0) {
+                ICLAMMPool(pool).initialize(sqrtPriceX96);
+            }
+        }
     }
 
     /*//////////////////////////////////////////////////////////////

@@ -7,11 +7,12 @@ import {ISwapCallback} from "../interfaces/callback/ISwapCallback.sol";
 import {TickMath} from "../libraries/TickMath.sol";
 import {SafeCast} from "../libraries/SafeCast.sol";
 import {TransferHelper} from "../libraries/TransferHelper.sol";
+import {Multicall} from "./base/Multicall.sol";
 
 /// @title SwapRouter
 /// @notice Router for stateless execution of swaps against CLAMM pools, with
 ///         deadline and slippage protection.
-contract SwapRouter is ISwapCallback {
+contract SwapRouter is ISwapCallback, Multicall {
     using SafeCast for uint256;
 
     struct ExactInputSingleParams {
