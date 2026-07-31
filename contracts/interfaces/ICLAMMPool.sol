@@ -93,10 +93,7 @@ interface ICLAMMPool {
     function maxLiquidityPerTick() external view returns (uint128);
 
     /// @notice The 0th storage slot in the pool stores many values, and is exposed as a single method to save gas when accessed externally.
-    function slot0()
-        external
-        view
-        returns (uint160 sqrtPriceX96, int24 tick, uint8 feeProtocol, bool unlocked);
+    function slot0() external view returns (uint160 sqrtPriceX96, int24 tick, uint8 feeProtocol, bool unlocked);
 
     /// @notice The fee growth as a Q128.128 fees of token0 collected per unit of liquidity for the entire life of the pool.
     function feeGrowthGlobal0X128() external view returns (uint256);
@@ -168,13 +165,9 @@ interface ICLAMMPool {
     /// @param data Any data that should be passed through to the callback.
     /// @return amount0 The amount of token0 that was paid to mint the given amount of liquidity.
     /// @return amount1 The amount of token1 that was paid to mint the given amount of liquidity.
-    function mint(
-        address recipient,
-        int24 tickLower,
-        int24 tickUpper,
-        uint128 amount,
-        bytes calldata data
-    ) external returns (uint256 amount0, uint256 amount1);
+    function mint(address recipient, int24 tickLower, int24 tickUpper, uint128 amount, bytes calldata data)
+        external
+        returns (uint256 amount0, uint256 amount1);
 
     /// @notice Collects tokens owed to a position.
     /// @param recipient The address which should receive the fees collected.
@@ -198,9 +191,7 @@ interface ICLAMMPool {
     /// @param amount How much liquidity to burn.
     /// @return amount0 The amount of token0 sent to the recipient.
     /// @return amount1 The amount of token1 sent to the recipient.
-    function burn(int24 tickLower, int24 tickUpper, uint128 amount)
-        external
-        returns (uint256 amount0, uint256 amount1);
+    function burn(int24 tickLower, int24 tickUpper, uint128 amount) external returns (uint256 amount0, uint256 amount1);
 
     /// @notice Swap token0 for token1, or token1 for token0.
     /// @param recipient The address to receive the output of the swap.

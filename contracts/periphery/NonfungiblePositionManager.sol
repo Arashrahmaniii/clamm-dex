@@ -141,12 +141,10 @@ contract NonfungiblePositionManager is ERC721, IMintCallback, Multicall {
     /// @param fee The fee tier of the pool.
     /// @param sqrtPriceX96 The initial price for the pool if it must be initialized.
     /// @return pool The pool for the given parameters.
-    function createAndInitializePoolIfNecessary(
-        address token0,
-        address token1,
-        uint24 fee,
-        uint160 sqrtPriceX96
-    ) external returns (address pool) {
+    function createAndInitializePoolIfNecessary(address token0, address token1, uint24 fee, uint160 sqrtPriceX96)
+        external
+        returns (address pool)
+    {
         require(token0 < token1, "NPM: TOKEN_ORDER");
         pool = factory.getPool(token0, token1, fee);
 
@@ -154,7 +152,7 @@ contract NonfungiblePositionManager is ERC721, IMintCallback, Multicall {
             pool = factory.createPool(token0, token1, fee);
             ICLAMMPool(pool).initialize(sqrtPriceX96);
         } else {
-            (uint160 sqrtPriceX96Existing, , , ) = ICLAMMPool(pool).slot0();
+            (uint160 sqrtPriceX96Existing,,,) = ICLAMMPool(pool).slot0();
             if (sqrtPriceX96Existing == 0) {
                 ICLAMMPool(pool).initialize(sqrtPriceX96);
             }
@@ -192,28 +190,25 @@ contract NonfungiblePositionManager is ERC721, IMintCallback, Multicall {
     ) private returns (uint128 liquidity, uint256 amount0, uint256 amount1) {
         // Compute the liquidity amount from desired token amounts at current price.
         {
-            (uint160 sqrtPriceX96, , , ) = ICLAMMPool(pool).slot0();
+            (uint160 sqrtPriceX96,,,) = ICLAMMPool(pool).slot0();
             uint160 sqrtRatioAX96 = TickMath.getSqrtRatioAtTick(tickLower);
             uint160 sqrtRatioBX96 = TickMath.getSqrtRatioAtTick(tickUpper);
 
             liquidity = LiquidityAmounts.getLiquidityForAmounts(
-                sqrtPriceX96,
-                sqrtRatioAX96,
-                sqrtRatioBX96,
-                amount0Desired,
-                amount1Desired
+                sqrtPriceX96, sqrtRatioAX96, sqrtRatioBX96, amount0Desired, amount1Desired
             );
         }
         require(liquidity > 0, "NPM: ZERO_LIQUIDITY");
 
         _expectedCallbackPool = pool;
-        (amount0, amount1) = ICLAMMPool(pool).mint(
-            address(this),
-            tickLower,
-            tickUpper,
-            liquidity,
-            abi.encode(MintCallbackData({token0: token0, token1: token1, payer: msg.sender}))
-        );
+        (amount0, amount1) = ICLAMMPool(pool)
+            .mint(
+                address(this),
+                tickLower,
+                tickUpper,
+                liquidity,
+                abi.encode(MintCallbackData({token0: token0, token1: token1, payer: msg.sender}))
+            );
         _expectedCallbackPool = address(0);
 
         require(amount0 >= amount0Min && amount1 >= amount1Min, "NPM: SLIPPAGE");
@@ -252,7 +247,8 @@ contract NonfungiblePositionManager is ERC721, IMintCallback, Multicall {
 
         // The position's fee snapshot starts at the pool's current inside growth.
         bytes32 positionKey = keccak256(abi.encodePacked(address(this), params.tickLower, params.tickUpper));
-        (, uint256 feeGrowthInside0LastX128, uint256 feeGrowthInside1LastX128, , ) = ICLAMMPool(pool).positions(positionKey);
+        (, uint256 feeGrowthInside0LastX128, uint256 feeGrowthInside1LastX128,,) =
+            ICLAMMPool(pool).positions(positionKey);
 
         positions[tokenId] = PositionData({
             pool: pool,
@@ -363,13 +359,8 @@ contract NonfungiblePositionManager is ERC721, IMintCallback, Multicall {
         uint128 amount1Collect = params.amount1Max > position.tokensOwed1 ? position.tokensOwed1 : params.amount1Max;
 
         // The pool pays the recipient directly.
-        (amount0, amount1) = ICLAMMPool(pool).collect(
-            params.recipient,
-            position.tickLower,
-            position.tickUpper,
-            amount0Collect,
-            amount1Collect
-        );
+        (amount0, amount1) = ICLAMMPool(pool)
+            .collect(params.recipient, position.tickLower, position.tickUpper, amount0Collect, amount1Collect);
 
         // Underflow-safe: collected amounts are bounded by tokensOwed above.
         position.tokensOwed0 -= amount0Collect;
@@ -383,10 +374,7 @@ contract NonfungiblePositionManager is ERC721, IMintCallback, Multicall {
     /// @param tokenId The ID of the token that is being burned.
     function burn(uint256 tokenId) external isAuthorizedForToken(tokenId) {
         PositionData storage position = positions[tokenId];
-        require(
-            position.liquidity == 0 && position.tokensOwed0 == 0 && position.tokensOwed1 == 0,
-            "NPM: NOT_CLEARED"
-        );
+        require(position.liquidity == 0 && position.tokensOwed0 == 0 && position.tokensOwed1 == 0, "NPM: NOT_CLEARED");
         delete positions[tokenId];
         _burn(tokenId);
     }
@@ -395,21 +383,18 @@ contract NonfungiblePositionManager is ERC721, IMintCallback, Multicall {
     ///      growth, accruing any newly earned fees to tokensOwed.
     function _updateFees(PositionData storage position, address pool) private {
         bytes32 positionKey = keccak256(abi.encodePacked(address(this), position.tickLower, position.tickUpper));
-        (, uint256 feeGrowthInside0LastX128, uint256 feeGrowthInside1LastX128, , ) = ICLAMMPool(pool).positions(positionKey);
+        (, uint256 feeGrowthInside0LastX128, uint256 feeGrowthInside1LastX128,,) =
+            ICLAMMPool(pool).positions(positionKey);
 
         unchecked {
             position.tokensOwed0 += uint128(
                 FullMath.mulDiv(
-                    feeGrowthInside0LastX128 - position.feeGrowthInside0LastX128,
-                    position.liquidity,
-                    FixedPoint128.Q128
+                    feeGrowthInside0LastX128 - position.feeGrowthInside0LastX128, position.liquidity, FixedPoint128.Q128
                 )
             );
             position.tokensOwed1 += uint128(
                 FullMath.mulDiv(
-                    feeGrowthInside1LastX128 - position.feeGrowthInside1LastX128,
-                    position.liquidity,
-                    FixedPoint128.Q128
+                    feeGrowthInside1LastX128 - position.feeGrowthInside1LastX128, position.liquidity, FixedPoint128.Q128
                 )
             );
         }

@@ -72,7 +72,10 @@ contract SwapRouter is ISwapCallback, Multicall {
         SwapCallbackData memory decoded = abi.decode(data, (SwapCallbackData));
 
         // Only the canonical pool for this token pair + fee may invoke the callback.
-        require(msg.sender == address(_getPool(decoded.tokenIn, decoded.tokenOut, decoded.fee)), "SwapRouter: INVALID_CALLBACK");
+        require(
+            msg.sender == address(_getPool(decoded.tokenIn, decoded.tokenOut, decoded.fee)),
+            "SwapRouter: INVALID_CALLBACK"
+        );
 
         // Exactly one delta is positive: that's the amount the pool must be paid.
         (address tokenToPay, uint256 amountToPay) = amount0Delta > 0
@@ -103,10 +106,7 @@ contract SwapRouter is ISwapCallback, Multicall {
                 : params.sqrtPriceLimitX96,
             abi.encode(
                 SwapCallbackData({
-                    tokenIn: params.tokenIn,
-                    tokenOut: params.tokenOut,
-                    fee: params.fee,
-                    payer: msg.sender
+                    tokenIn: params.tokenIn, tokenOut: params.tokenOut, fee: params.fee, payer: msg.sender
                 })
             )
         );
@@ -135,18 +135,14 @@ contract SwapRouter is ISwapCallback, Multicall {
                 : params.sqrtPriceLimitX96,
             abi.encode(
                 SwapCallbackData({
-                    tokenIn: params.tokenIn,
-                    tokenOut: params.tokenOut,
-                    fee: params.fee,
-                    payer: msg.sender
+                    tokenIn: params.tokenIn, tokenOut: params.tokenOut, fee: params.fee, payer: msg.sender
                 })
             )
         );
 
         uint256 amountOutReceived;
-        (amountIn, amountOutReceived) = zeroForOne
-            ? (uint256(amount0), uint256(-amount1))
-            : (uint256(amount1), uint256(-amount0));
+        (amountIn, amountOutReceived) =
+            zeroForOne ? (uint256(amount0), uint256(-amount1)) : (uint256(amount1), uint256(-amount0));
 
         // If the price limit was not hit, the full output must have been received.
         if (params.sqrtPriceLimitX96 == 0) {

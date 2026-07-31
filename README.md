@@ -1,6 +1,6 @@
 # CLAMM — Concentrated-Liquidity AMM
 
-A from-scratch implementation of a **concentrated-liquidity DEX** (Uniswap V3-style) in Solidity 0.8, with tick-based liquidity, Q64.96 fixed-point sqrt-price accounting, ERC-721 liquidity positions, flash loans, protocol fees, a TWAP oracle, and an off-chain quoter. Built with Hardhat + TypeScript and covered by 70 unit, integration and invariant tests.
+A from-scratch implementation of a **concentrated-liquidity DEX** (Uniswap V3-style) in Solidity 0.8, with tick-based liquidity, Q64.96 fixed-point sqrt-price accounting, ERC-721 liquidity positions, flash loans, protocol fees, a TWAP oracle, and an off-chain quoter. Built with **Foundry** and covered by 84 unit, fuzz and invariant tests.
 
 > ⚠️ **Educational / portfolio project.** The contracts compile cleanly and the full test suite passes, but the code has **not been audited** and must not be used to hold real funds.
 
@@ -58,12 +58,42 @@ Deliberately out of scope to keep the audit surface small: multi-hop routing, na
 
 ## Getting started
 
+Requires [Foundry](https://book.getfoundry.sh/getting-started/installation). Dependencies
+(`forge-std`, `openzeppelin-contracts`) are git submodules.
+
 ```bash
-npm install
-npm run build     # hardhat compile
-npm test          # 70 unit + integration + invariant tests
-npm run lint      # solhint
-REPORT_GAS=true npx hardhat test   # gas report
+git clone --recursive https://github.com/Arashrahmaniii/clamm-dex
+cd clamm-dex
+forge build
+forge test                 # 84 unit + fuzz + invariant tests
+forge test --gas-report    # per-function gas
+forge build --sizes        # deployed bytecode sizes against the EIP-170 limit
+forge fmt --check          # formatting
+```
+
+> `forge coverage` does not currently work on this repo. It requires `--ir-minimum`,
+> which recompiles at minimum optimization, and that runs `NonfungiblePositionManager`
+> into a solc stack-too-deep — a known limitation of coverage on via-IR projects
+> rather than a problem with the contracts.
+
+Already cloned without `--recursive`? Run `forge install` (or `git submodule update --init --recursive`).
+
+### Layout
+
+```
+contracts/                 # source (foundry.toml sets src = "contracts")
+test/
+├── Math.t.sol             # TickMath, FullMath, SqrtPriceMath, SwapMath
+├── Pool.t.sol             # factory, initialize, mint, swap, fees, burn, flash
+├── Periphery.t.sol        # position manager + swap router
+├── Features.t.sol         # oracle, quoter, multicall
+├── Invariant.t.sol        # solvency invariants
+└── utils/
+    ├── Base.t.sol         # shared fixtures, constants, price helpers
+    ├── PoolHandler.sol     # bounded action surface for the invariant fuzzer
+    ├── MathTest.sol        # external wrapper over the internal math libraries
+    ├── PoolTestCallee.sol  # fulfils the pool's mint/swap/flash callbacks
+    └── TestERC20.sol
 ```
 
 ## Test coverage highlights
@@ -73,7 +103,8 @@ REPORT_GAS=true npx hardhat test   # gas report
 - **Pool lifecycle**: initialize-once, in-range/out-of-range mints, tick-spacing enforcement, exact-input and exact-output swaps in both directions, price-limit partial fills, tick crossing deactivating liquidity, fee accrual to the exact expected 0.30%, protocol fee split and collection, flash loans, and 1-wei-max rounding loss on principal exit.
 - **Periphery**: ERC-721 authorization (owner/approved-operator), slippage and deadline reverts, callback caller validation, and a full LP-earns-fees-and-exits integration journey.
 - **Oracle & quoter**: accumulator advances only when the price can move, TWAP reconstruction across a swap, and quoter outputs asserted equal-to-the-wei against subsequently executed swaps.
-- **Solvency invariant**: seeded randomized sessions (mints, both-direction exact-in/out swaps, flashes, partial burns) followed by a full exit of every position and the protocol fees — the pool must honour every withdrawal and end holding nothing but sub-1e6-wei rounding dust.
+- **Fuzz properties**: tick-math round-trips and monotonicity across the entire `[MIN_TICK, MAX_TICK]` domain; `mulDiv` against native arithmetic wherever no overflow is possible; rounding-up never more than one unit above rounding-down; a swap step never overspending its input; mint→burn round-trips never returning more than was paid; exact-input swaps spending exactly the requested amount; price never crossing a caller's limit; and quoter output matching the executed swap to the wei.
+- **Solvency invariant**: a handler-driven [invariant suite](test/Invariant.t.sol) where Foundry — not a seeded RNG — composes the call sequences. Across 64 runs × 32-call sequences of mints, both-direction exact-in/out swaps, flashes, partial burns and protocol-fee changes, the pool must at every step (a) still physically hold at least the protocol fees it has credited, (b) keep its price inside the representable tick range, and (c) honour a **complete exit**: every position burned and collected and the protocol fees swept, leaving the pool with zero active liquidity and nothing but sub-1e6-wei rounding dust. The exit sweep runs against a state snapshot so it never perturbs the sequence being explored.
 
 ## Security considerations
 

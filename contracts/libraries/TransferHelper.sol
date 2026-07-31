@@ -10,8 +10,7 @@ library TransferHelper {
     /// @notice Transfers tokens from `msg.sender` to a recipient.
     /// @dev Errors with the underlying revert reason if the transfer fails.
     function safeTransfer(address token, address to, uint256 value) internal {
-        (bool success, bytes memory data) =
-            token.call(abi.encodeWithSelector(IERC20.transfer.selector, to, value));
+        (bool success, bytes memory data) = token.call(abi.encodeWithSelector(IERC20.transfer.selector, to, value));
         require(success && (data.length == 0 || abi.decode(data, (bool))), "TransferHelper: TRANSFER_FAILED");
     }
 

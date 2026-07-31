@@ -1,12 +1,14 @@
-node_modules
+# Foundry build output
+out/
+cache/
+broadcast/
+
+# Coverage
+lcov.info
+coverage/
+
+# Local environment and editors
 .env
 .vscode
 .idea
-coverage
-coverage.json
-typechain
-typechain-types
-artifacts
-cache
-gas-report.txt
 .DS_Store

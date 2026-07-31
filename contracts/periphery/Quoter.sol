@@ -43,8 +43,7 @@ contract Quoter is ISwapCallback {
         require(amount0Delta > 0 || amount1Delta > 0, "Quoter: ZERO_SWAP");
         QuoteCallbackData memory decoded = abi.decode(data, (QuoteCallbackData));
         require(
-            msg.sender == address(_getPool(decoded.tokenIn, decoded.tokenOut, decoded.fee)),
-            "Quoter: INVALID_CALLBACK"
+            msg.sender == address(_getPool(decoded.tokenIn, decoded.tokenOut, decoded.fee)), "Quoter: INVALID_CALLBACK"
         );
 
         bool zeroForOne = decoded.tokenIn < decoded.tokenOut;
@@ -63,27 +62,22 @@ contract Quoter is ISwapCallback {
 
     /// @dev Executes the swap and decodes (amountIn, amountOut) out of the
     ///      callback's intentional revert.
-    function _quote(
-        address tokenIn,
-        address tokenOut,
-        uint24 fee,
-        int256 amountSpecified,
-        uint160 sqrtPriceLimitX96
-    ) private returns (uint256 amountIn, uint256 amountOut) {
+    function _quote(address tokenIn, address tokenOut, uint24 fee, int256 amountSpecified, uint160 sqrtPriceLimitX96)
+        private
+        returns (uint256 amountIn, uint256 amountOut)
+    {
         bool zeroForOne = tokenIn < tokenOut;
         ICLAMMPool pool = _getPool(tokenIn, tokenOut, fee);
 
-        try
-            pool.swap(
-                address(this),
-                zeroForOne,
-                amountSpecified,
-                sqrtPriceLimitX96 == 0
-                    ? (zeroForOne ? TickMath.MIN_SQRT_RATIO + 1 : TickMath.MAX_SQRT_RATIO - 1)
-                    : sqrtPriceLimitX96,
-                abi.encode(QuoteCallbackData({tokenIn: tokenIn, tokenOut: tokenOut, fee: fee}))
-            )
-        {
+        try pool.swap(
+            address(this),
+            zeroForOne,
+            amountSpecified,
+            sqrtPriceLimitX96 == 0
+                ? (zeroForOne ? TickMath.MIN_SQRT_RATIO + 1 : TickMath.MAX_SQRT_RATIO - 1)
+                : sqrtPriceLimitX96,
+            abi.encode(QuoteCallbackData({tokenIn: tokenIn, tokenOut: tokenOut, fee: fee}))
+        ) {
             // The callback always reverts; reaching here means it never ran.
             revert("Quoter: NO_CALLBACK");
         } catch (bytes memory reason) {

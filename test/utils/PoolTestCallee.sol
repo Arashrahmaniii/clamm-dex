@@ -1,33 +1,27 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {ICLAMMPool} from "../interfaces/ICLAMMPool.sol";
-import {IMintCallback} from "../interfaces/callback/IMintCallback.sol";
-import {ISwapCallback} from "../interfaces/callback/ISwapCallback.sol";
-import {IFlashCallback} from "../interfaces/callback/IFlashCallback.sol";
-import {TransferHelper} from "../libraries/TransferHelper.sol";
+import {ICLAMMPool} from "../../contracts/interfaces/ICLAMMPool.sol";
+import {IMintCallback} from "../../contracts/interfaces/callback/IMintCallback.sol";
+import {ISwapCallback} from "../../contracts/interfaces/callback/ISwapCallback.sol";
+import {IFlashCallback} from "../../contracts/interfaces/callback/IFlashCallback.sol";
+import {TransferHelper} from "../../contracts/libraries/TransferHelper.sol";
 
 /// @title PoolTestCallee
 /// @notice Test-only contract that fulfils the pool's callback obligations by
 ///         pulling tokens from the payer encoded in the callback data.
 contract PoolTestCallee is IMintCallback, ISwapCallback, IFlashCallback {
-    function mint(
-        address pool,
-        address recipient,
-        int24 tickLower,
-        int24 tickUpper,
-        uint128 amount
-    ) external returns (uint256 amount0, uint256 amount1) {
+    function mint(address pool, address recipient, int24 tickLower, int24 tickUpper, uint128 amount)
+        external
+        returns (uint256 amount0, uint256 amount1)
+    {
         return ICLAMMPool(pool).mint(recipient, tickLower, tickUpper, amount, abi.encode(msg.sender));
     }
 
-    function swap(
-        address pool,
-        address recipient,
-        bool zeroForOne,
-        int256 amountSpecified,
-        uint160 sqrtPriceLimitX96
-    ) external returns (int256 amount0, int256 amount1) {
+    function swap(address pool, address recipient, bool zeroForOne, int256 amountSpecified, uint160 sqrtPriceLimitX96)
+        external
+        returns (int256 amount0, int256 amount1)
+    {
         return ICLAMMPool(pool).swap(recipient, zeroForOne, amountSpecified, sqrtPriceLimitX96, abi.encode(msg.sender));
     }
 

@@ -128,9 +128,7 @@ library Tick {
 
         // When the lower (upper) tick is crossed left to right (right to left),
         // liquidity must be added (removed).
-        info.liquidityNet = upper
-            ? info.liquidityNet - liquidityDelta
-            : info.liquidityNet + liquidityDelta;
+        info.liquidityNet = upper ? info.liquidityNet - liquidityDelta : info.liquidityNet + liquidityDelta;
     }
 
     /// @notice Clears tick data.

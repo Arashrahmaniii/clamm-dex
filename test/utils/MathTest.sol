@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {TickMath} from "../libraries/TickMath.sol";
-import {FullMath} from "../libraries/FullMath.sol";
-import {SqrtPriceMath} from "../libraries/SqrtPriceMath.sol";
-import {SwapMath} from "../libraries/SwapMath.sol";
-import {LiquidityAmounts} from "../periphery/libraries/LiquidityAmounts.sol";
+import {TickMath} from "../../contracts/libraries/TickMath.sol";
+import {FullMath} from "../../contracts/libraries/FullMath.sol";
+import {SqrtPriceMath} from "../../contracts/libraries/SqrtPriceMath.sol";
+import {SwapMath} from "../../contracts/libraries/SwapMath.sol";
+import {LiquidityAmounts} from "../../contracts/periphery/libraries/LiquidityAmounts.sol";
 
 /// @title MathTest
 /// @notice Thin external wrapper over the internal math libraries so the test
@@ -35,30 +35,27 @@ contract MathTest {
         return FullMath.mulDivRoundingUp(a, b, denominator);
     }
 
-    function getNextSqrtPriceFromInput(
-        uint160 sqrtPX96,
-        uint128 liquidity,
-        uint256 amountIn,
-        bool zeroForOne
-    ) external pure returns (uint160) {
+    function getNextSqrtPriceFromInput(uint160 sqrtPX96, uint128 liquidity, uint256 amountIn, bool zeroForOne)
+        external
+        pure
+        returns (uint160)
+    {
         return SqrtPriceMath.getNextSqrtPriceFromInput(sqrtPX96, liquidity, amountIn, zeroForOne);
     }
 
-    function getAmount0Delta(
-        uint160 sqrtRatioAX96,
-        uint160 sqrtRatioBX96,
-        uint128 liquidity,
-        bool roundUp
-    ) external pure returns (uint256) {
+    function getAmount0Delta(uint160 sqrtRatioAX96, uint160 sqrtRatioBX96, uint128 liquidity, bool roundUp)
+        external
+        pure
+        returns (uint256)
+    {
         return SqrtPriceMath.getAmount0Delta(sqrtRatioAX96, sqrtRatioBX96, liquidity, roundUp);
     }
 
-    function getAmount1Delta(
-        uint160 sqrtRatioAX96,
-        uint160 sqrtRatioBX96,
-        uint128 liquidity,
-        bool roundUp
-    ) external pure returns (uint256) {
+    function getAmount1Delta(uint160 sqrtRatioAX96, uint160 sqrtRatioBX96, uint128 liquidity, bool roundUp)
+        external
+        pure
+        returns (uint256)
+    {
         return SqrtPriceMath.getAmount1Delta(sqrtRatioAX96, sqrtRatioBX96, liquidity, roundUp);
     }
 

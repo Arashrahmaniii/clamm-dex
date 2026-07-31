@@ -166,8 +166,7 @@ contract CLAMMPool is ICLAMMPool {
         require(slot0.sqrtPriceX96 != 0, "CLAMMPool: NI"); // not initialized
         blockTimestamp = uint32(block.timestamp);
         unchecked {
-            tickCumulative =
-                tickCumulativeLast + int56(slot0.tick) * int56(uint56(blockTimestamp - blockTimestampLast));
+            tickCumulative = tickCumulativeLast + int56(slot0.tick) * int56(uint56(blockTimestamp - blockTimestampLast));
         }
     }
 
@@ -230,14 +229,10 @@ contract CLAMMPool is ICLAMMPool {
             } else if (_slot0.tick < params.tickUpper) {
                 // Current tick is inside the passed range.
                 amount0 = SqrtPriceMath.getAmount0Delta(
-                    _slot0.sqrtPriceX96,
-                    TickMath.getSqrtRatioAtTick(params.tickUpper),
-                    params.liquidityDelta
+                    _slot0.sqrtPriceX96, TickMath.getSqrtRatioAtTick(params.tickUpper), params.liquidityDelta
                 );
                 amount1 = SqrtPriceMath.getAmount1Delta(
-                    TickMath.getSqrtRatioAtTick(params.tickLower),
-                    _slot0.sqrtPriceX96,
-                    params.liquidityDelta
+                    TickMath.getSqrtRatioAtTick(params.tickLower), _slot0.sqrtPriceX96, params.liquidityDelta
                 );
 
                 liquidity = LiquidityMath.addDelta(liquidity, params.liquidityDelta);
@@ -259,13 +254,10 @@ contract CLAMMPool is ICLAMMPool {
     /// @param tickLower The lower tick of the position's tick range.
     /// @param tickUpper The upper tick of the position's tick range.
     /// @param tick The current tick, passed to avoid sloads.
-    function _updatePosition(
-        address owner,
-        int24 tickLower,
-        int24 tickUpper,
-        int128 liquidityDelta,
-        int24 tick
-    ) private returns (Position.Info storage position) {
+    function _updatePosition(address owner, int24 tickLower, int24 tickUpper, int128 liquidityDelta, int24 tick)
+        private
+        returns (Position.Info storage position)
+    {
         position = positions.get(owner, tickLower, tickUpper);
 
         uint256 _feeGrowthGlobal0X128 = feeGrowthGlobal0X128; // SLOAD for gas optimization
@@ -285,13 +277,7 @@ contract CLAMMPool is ICLAMMPool {
                 maxLiquidityPerTick
             );
             flippedUpper = ticks.update(
-                tickUpper,
-                tick,
-                liquidityDelta,
-                _feeGrowthGlobal0X128,
-                _feeGrowthGlobal1X128,
-                true,
-                maxLiquidityPerTick
+                tickUpper, tick, liquidityDelta, _feeGrowthGlobal0X128, _feeGrowthGlobal1X128, true, maxLiquidityPerTick
             );
 
             if (flippedLower) {
@@ -319,13 +305,12 @@ contract CLAMMPool is ICLAMMPool {
     }
 
     /// @inheritdoc ICLAMMPool
-    function mint(
-        address recipient,
-        int24 tickLower,
-        int24 tickUpper,
-        uint128 amount,
-        bytes calldata data
-    ) external override lock returns (uint256 amount0, uint256 amount1) {
+    function mint(address recipient, int24 tickLower, int24 tickUpper, uint128 amount, bytes calldata data)
+        external
+        override
+        lock
+        returns (uint256 amount0, uint256 amount1)
+    {
         require(amount > 0, "CLAMMPool: ZERO_LIQUIDITY");
         (, int256 amount0Int, int256 amount1Int) = _modifyPosition(
             ModifyPositionParams({
@@ -397,7 +382,7 @@ contract CLAMMPool is ICLAMMPool {
 
         if (amount0 > 0 || amount1 > 0) {
             (position.tokensOwed0, position.tokensOwed1) =
-                (position.tokensOwed0 + uint128(amount0), position.tokensOwed1 + uint128(amount1));
+            (position.tokensOwed0 + uint128(amount0), position.tokensOwed1 + uint128(amount1));
         }
 
         emit Burn(msg.sender, tickLower, tickUpper, amount, amount0, amount1);
@@ -547,8 +532,7 @@ contract CLAMMPool is ICLAMMPool {
             // Update global fee tracker.
             if (state.liquidity > 0) {
                 unchecked {
-                    state.feeGrowthGlobalX128 +=
-                        FullMath.mulDiv(step.feeAmount, FixedPoint128.Q128, state.liquidity);
+                    state.feeGrowthGlobalX128 += FullMath.mulDiv(step.feeAmount, FixedPoint128.Q128, state.liquidity);
                 }
             }
 
@@ -682,8 +666,8 @@ contract CLAMMPool is ICLAMMPool {
     /// @inheritdoc ICLAMMPool
     function setFeeProtocol(uint8 feeProtocol0, uint8 feeProtocol1) external override lock onlyFactoryOwner {
         require(
-            (feeProtocol0 == 0 || (feeProtocol0 >= 4 && feeProtocol0 <= 10)) &&
-                (feeProtocol1 == 0 || (feeProtocol1 >= 4 && feeProtocol1 <= 10)),
+            (feeProtocol0 == 0 || (feeProtocol0 >= 4 && feeProtocol0 <= 10))
+                && (feeProtocol1 == 0 || (feeProtocol1 >= 4 && feeProtocol1 <= 10)),
             "CLAMMPool: FP"
         );
         uint8 feeProtocolOld = slot0.feeProtocol;
