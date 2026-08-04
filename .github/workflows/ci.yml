@@ -10,6 +10,7 @@ env:
 
 jobs:
   test:
+    name: Build & Test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -31,3 +32,21 @@ jobs:
 
       - name: Gas snapshot
         run: forge snapshot
+
+  slither:
+    name: Static analysis
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: stable
+
+      - name: Run Slither
+        uses: crytic/slither-action@v0.4.0
+        with:
+          fail-on: none
+          slither-args: --filter-paths "lib|test" --exclude-dependencies

@@ -117,6 +117,12 @@ test/
 | Non-standard ERC20 return values | `TransferHelper` tolerates empty return data |
 | Tick spacing / bitmap overflow | Factory caps `tickSpacing < 16384` |
 
+Static analysis is run in CI. [`SECURITY.md`](SECURITY.md) records the full
+Slither baseline — 53 findings, each either fixed or justified in writing — and
+documents what static analysis cannot reach here (rounding direction, tick-bitmap
+correctness, fee-growth wrap on tick crossings, protocol solvency) along with the
+tests that do cover it.
+
 ## License
 
 MIT. The tick/sqrt-price algorithms follow the approach pioneered by Uniswap V3 (also MIT/GPL-licensed); this is an independent implementation written for learning and demonstration.
